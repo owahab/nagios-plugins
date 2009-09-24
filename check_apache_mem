@@ -1,0 +1,143 @@
+#! /bin/sh
+#
+# Apache processes memory detector plugin for Nagios
+# Written by Omar Abdel-Wahab (owahab@owahab.com)
+# Last Modified: 08-20-2009
+#
+# Usage: ./check_apache_mem <process_name>
+#
+# Description:
+#
+# @TODO
+#
+# Output:
+#
+# @TODO
+#
+# Notes:
+#
+# @TODO
+#
+# Examples:
+#
+# @TODO
+#
+
+PROGNAME=`/usr/bin/basename $0`
+PROGPATH=`echo $0 | sed -e 's,[\\/][^\\/][^\\/]*$,,'`
+REVISION=`echo '$Revision: 1 $' | sed -e 's/[^0-9.]//g'`
+
+. $PROGPATH/utils.sh
+
+print_usage() {
+    echo "Usage: $PROGNAME -m (rss|rsz) -p processname -w warning -c critical"
+    echo "Usage: $PROGNAME --help"
+    echo "Usage: $PROGNAME --version"
+}
+
+print_help() {
+    print_revision $PROGNAME $REVISION
+    echo ""
+    print_usage
+    echo ""
+    echo "Apache process memory size detector plugin for Nagios"
+    echo ""
+}
+
+format_size() {
+	if [ "$1" -lt "1024" ]; then
+		echo "$1 KB"
+	else
+		newsize=$(echo "$1/1024" | bc)
+		echo "$newsize MB"
+	fi
+
+	return 0
+}
+
+calc_size() {
+	realsize=$(echo $1 | sed -e 's/M/\*1024/g')
+	echo "$realsize" | bc
+	return 0
+}
+
+memory_desc() {
+	if [ "$1" == "rss" ]; then
+		echo "Resident Memory"
+	elif [ "$1" == "vsz" ]; then
+		echo "Virtual Memory"
+	else
+		echo "Unknown"
+	fi
+
+	return 0
+}
+
+# Make sure the correct number of command line
+# arguments have been supplied
+
+if [ $# -lt 1 ]; then
+    print_usage
+    exit $STATE_UNKNOWN
+fi
+
+
+# Set defaults
+exitstatus=$STATE_UNKNOWN
+memory="rss"
+
+# Grab the command line arguments
+while test -n "$1"; do
+    case "$1" in
+        --help|-h)
+            print_help
+            exit $STATE_OK
+            ;;
+        --version|-V)
+            print_revision $PROGNAME $REVISION
+            exit $STATE_OK
+            ;;
+        --processname|-p)
+            processname=$2
+            shift
+            ;;
+        --warning|-w)
+            warning=$(calc_size $2)
+            shift
+            ;;
+        --critical|-c)
+            critical=$(calc_size $2)
+            shift
+            ;;
+        --memory|-m)
+            memory=$2
+            shift
+            ;;
+        *)
+            echo "Unknown argument: $1"
+            print_usage
+            exit $STATE_UNKNOWN
+            ;;
+    esac
+    shift
+done
+
+maxsize=$(ps -C $processname -o rss k rss | tail -n 1)
+
+size=$(format_size $maxsize)
+desc=$(memory_desc $memory)
+
+if [ "$maxsize" -ge "$critical" ]; then
+	data="CRITICAL: a process reached $size $desc Size"
+	exitstatus=$STATE_CRITICAL
+elif [ "$maxsize" -ge "$warning" ]; then
+	data="WARNING: a process reached $size $desc Size"
+	exitstatus=$STATE_WARNING
+elif [ "$maxsize" -lt "$critical" ]; then
+	data="OK: Maximum process size has $size $desc Size"
+	exitstatus=$STATE_OK
+fi
+
+echo "APACHE $data"
+
+exit $exitstatus
