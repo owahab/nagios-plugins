@@ -1,184 +1,137 @@
-#!/bin/sh                                           
- 
-#   This program is free software; you can redistribute it and/or modify
-#   it under the terms of the GNU General Public License as published by
-#   the Free Software Foundation; version 2 of the License only.
+#! /bin/sh
 #
-#   This program is distributed in the hope that it will be useful,
-#   but WITHOUT ANY WARRANTY; without even the implied warranty of
-#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#   GNU General Public License for more details.
+# Apache processes memory detector plugin for Nagios
+# Written by Omar Abdel-Wahab (owahab@owahab.com)
+# Last Modified: 08-20-2009
 #
-#   You should have received a copy of the GNU General Public License
-#   along with this program; if not, write to the Free Software
-#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- 
-ST_OK=0
-ST_WR=1
-ST_CR=2
-ST_UK=3
-wcdiff=0
-wclvls=0
- 
-PROGNAME=`basename $0`
-VERSION="Version 1.0,"
-AUTHOR="2009, Mike Adolphs (http://www.matejunkie.com/)"
- 
-print_version() {
-    echo "$VERSION $AUTHOR"
-}                          
- 
+# Usage: ./check_apache_mem <process_name>
+#
+# Description:
+#
+# @TODO
+#
+# Output:
+#
+# @TODO
+#
+# Notes:
+#
+# @TODO
+#
+# Examples:
+#
+# @TODO
+#
+
+PROGNAME=`/usr/bin/basename $0`
+PROGPATH=`echo $0 | sed -e 's,[\\/][^\\/][^\\/]*$,,'`
+REVISION=`echo '$Revision: 1 $' | sed -e 's/[^0-9.]//g'`
+
+. $PROGPATH/utils.sh
+
+print_usage() {
+    echo "Usage: $PROGNAME -s (percentage|bites) -w warning -c critical"
+    echo "Usage: $PROGNAME --help"
+    echo "Usage: $PROGNAME --version"
+}
+
 print_help() {
-    print_version $PROGNAME $VERSION
+    print_revision $PROGNAME $REVISION
     echo ""
-    echo "$PROGNAME is a Nagios plugin to check the current memory usage via"
-    echo "/proc/meminfo. It should work on almost every system where you're"
-    echo "able to cat /proc/meminfo. The script itself is written sh-compliant"
-    echo "and free software under the terms of the GPLv2."
+    print_usage
     echo ""
-    echo "$PROGNAME -s/--style kb/perc [-w/--warning] [-c/--critical]"
-    echo "Options:"
-    echo "  -s/--style)"
-    echo "     You're able to set the output to kilobyte (kb) or percentage"
-    echo "     (perc) values. Please note that other values will result in"
-    echo "     termination. Default is: kb"
-    echo "  -w/--warning)"
-    echo "     Warning level in kb or percent for the amount of used memory."
-    echo "     Note that when the style is set to percentage, only values"
-    echo "     betweeen 0 and 100 are allowed. Default is: Off."
-    echo "  -c/--critical)"
-    echo "     Critical level in kb or percent for the amount of used memory."
-    echo "     Note that when the style is set to percentage, only values"
-    echo "     between 0 and 100 are allowed. Default is: Off."
-    exit $ST_UK
-}                                                                              
- 
-val_wcdiff() {
-    if [ ${lv_wr} -gt ${lv_cr} ]
-    then
-        wcdiff=1
-    fi
-}                               
- 
-val_wclvls() {
-    if [ $style = "perc" ]
-    then
-        if [ "$lv_wr" -lt 0 -o "$lv_wr" -gt 100 -o "$lv_cr" -lt 0 -o "$lv_cr" -gt 100 ]
-        then
-            wclvls=1
-            val_wcdiff
-        fi
-    fi
-}                                                                                      
- 
-style="kb"
- 
+    echo "Apache process memory size detector plugin for Nagios"
+    echo ""
+}
+
+format_size() {
+	if [ "$1" -lt "1024" ]; then
+		echo "$1 KB"
+	else
+		newsize=$(echo "$1/1024" | bc)
+		echo "$newsize MB"
+	fi
+
+	return 0
+}
+
+calc_size() {
+	realsize=$(echo $1 | sed -e 's/M/\*1024/g')
+	echo "$realsize" | bc
+	return 0
+}
+
+sed_mem() {
+	TMP_RESULT=$(echo "$*" | sed -e "s/\([a-zA-Z]*\):\s*\([0-9]*\)\skB/\2/g")
+	return $TMP_RESULT
+}
+
+# Make sure the correct number of command line
+# arguments have been supplied
+
+if [ $# -lt 1 ]; then
+    print_usage
+    exit $STATE_UNKNOWN
+fi
+
+
+# Set defaults
+exitstatus=$STATE_UNKNOWN
+style="percentage"
+
+# Grab the command line arguments
 while test -n "$1"; do
     case "$1" in
         --help|-h)
             print_help
-            exit $ST_UK
+            exit $STATE_OK
             ;;
-        --version|-v)
-            print_version $PROGNAME $VERSION
-            exit $ST_UK
+        --version|-V)
+            print_revision $PROGNAME $REVISION
+            exit $STATE_OK
             ;;
         --style|-s)
             style=$2
             shift
             ;;
         --warning|-w)
-            lv_wr=$2
+            warning=$(calc_size $2)
             shift
             ;;
         --critical|-c)
-            lv_cr=$2
+            critical=$(calc_size $2)
             shift
             ;;
         *)
             echo "Unknown argument: $1"
-            print_help
-            exit $ST_UK
+            print_usage
+            exit $STATE_UNKNOWN
             ;;
     esac
     shift
-done                                        
- 
-if [ ! -z "$lv_wr" -a ! -z "$lv_cr" ]
-then
-    val_wcdiff
-    val_wclvls
-fi                                   
- 
-if [ $wcdiff = 1 ]
-then
-    echo "Please adjust levels. The critical level must be higher than the warning level!"
-    if [ $wclvls = 1 ]
-    then
-        echo "Warning and critical level values must be between 0 and 100."
-    fi
-    exit $ST_UK
-fi                                                                                        
- 
-if [ $wclvls = 1 ]
-then
-    echo "Warning and critical level values must be between 0 and 100."
-    exit $ST_UK
-fi                                                                     
- 
-MEM_TOTAL=`grep "^MemTotal" /proc/meminfo|awk '{print $2}'`
-TMP_MEM_FREE=`grep "^MemFree" /proc/meminfo|awk '{print $2}'`
-TMP_MEM_USED=`expr $MEM_TOTAL - $TMP_MEM_FREE`
-BUFFERS=`grep "^Buffers" /proc/meminfo|awk '{print $2}'`
-CACHED=`grep "^Cached" /proc/meminfo|awk '{print $2}'`       
- 
-P_MEM_FREE=`echo "scale=2; $TMP_MEM_FREE / $MEM_TOTAL * 100" | bc -l | sed 's/.[0-9][0-9]//'`
-P_MEM_USED=`echo "scale=0; 100 - $P_MEM_FREE" | bc -l`                                       
- 
-if [ $style = "kb" ]
-then
-    if [ ! -z "$lv_wr" -a ! -z "$lv_cr" ]
-    then
-        if [ ${TMP_MEM_USED} -ge ${lv_wr} -a ${TMP_MEM_USED} -lt ${lv_cr} ]
-        then
-            echo "WARNING - Total: $MEM_TOTAL kb, Used: $TMP_MEM_USED kb, Free: $TMP_MEM_FREE kb | 'mem_total'=$MEM_TOTAL 'mem_used'=$TMP_MEM_USED;$lv_wr;$lv_cr 'mem_free'=$TMP_MEM_FREE"
-            exit $ST_WR
-        elif [ ${TMP_MEM_USED} -ge ${lv_cr} ]
-        then
-            echo "CRITICAL - Total: $MEM_TOTAL kb, Used: $TMP_MEM_USED kb, Free: $TMP_MEM_FREE kb | 'mem_total'=$MEM_TOTAL 'mem_used'=$TMP_MEM_USED;$lv_wr;$lv_cr 'mem_free'=$TMP_MEM_FREE"
-            exit $ST_CR
-        else
-            echo "OK - Total: $MEM_TOTAL kb, Used: $TMP_MEM_USED kb, Free: $TMP_MEM_FREE kb | 'mem_total'=$MEM_TOTAL 'mem_used'=$TMP_MEM_USED;$lv_wr;$lv_cr 'mem_free'=$TMP_MEM_FREE"
-            exit $ST_OK
-        fi
-    else
-        echo "OK - Total: $MEM_TOTAL kb, Used: $TMP_MEM_USED kb, Free: $TMP_MEM_FREE kb | 'mem_total'=$MEM_TOTAL 'mem_used'=$TMP_MEM_USED 'mem_free'=$TMP_MEM_FREE"
-        exit $ST_OK
-    fi
-elif [ $style = "perc" ]
-then
-    if [ ! -z "$lv_wr" -a ! -z "$lv_cr" ]
-    then
-        if [ ${P_MEM_USED} -ge ${lv_wr} -a ${P_MEM_USED} -lt ${lv_cr} ]
-        then
-            echo "WARNING - Used: $P_MEM_USED%, Free: $P_MEM_FREE% | 'mem_used'=$P_MEM_USED;$lv_wr;$lv_cr 'mem_free'=$P_MEM_FREE"
-            exit $ST_WR
-        elif [ ${P_MEM_USED} -ge ${lv_cr} ]
-        then
-            echo "CRITICAL - Used: $P_MEM_USED%, Free: $P_MEM_FREE% | 'mem_used'=$P_MEM_USED;$lv_wr;$lv_cr 'mem_free'=$P_MEM_FREE"
-            exit $ST_CR
-        else
-            echo "OK - Used: $P_MEM_USED%, Free: $P_MEM_FREE% | 'mem_used'=$P_MEM_USED;$lv_wr;$lv_cr 'mem_free'=$P_MEM_FREE"
-            exit $ST_OK
-        fi
-    else
-            echo "OK - Used: $P_MEM_USED%, Free: $P_MEM_FREE% | 'mem_used'=$P_MEM_USED 'mem_free'=$P_MEM_FREE"
-            exit $ST_OK
-    fi
-else
-    echo "Style (-s) must be either kb (kilobyte) or perc (for percent). kb is"
-    echo "being used as the default behavior when you don't provide the -s option."
-    echo ""
-    echo "For more information try -h or --help!"
-    exit $ST_UK
+done
+
+total_memory=$(sed_mem `cat /proc/meminfo | grep "^MemTotal"`)
+echo "to" $total_memory
+exit 0
+
+unallocated_memory=$(cat /proc/meminfo | grep "^MemFree" | cut -d ":" -f2 | cut -d " " -f7)
+cached_memory=$(cat /proc/meminfo | grep "^Cached" | cut -d ":" -f2 | cut -d " " -f7)
+
+size=$(format_size $maxsize)
+desc=$(memory_desc $memory)
+
+if [ "$free_memory" -ge "$critical" ]; then
+	data="CRITICAL: a process reached $size $desc Size"
+	exitstatus=$STATE_CRITICAL
+elif [ "$free_memory" -ge "$warning" ]; then
+	data="WARNING: a process reached $size $desc Size"
+	exitstatus=$STATE_WARNING
+elif [ "$free_memory" -lt "$critical" ]; then
+	data="OK: Maximum process size has $size $desc Size"
+	exitstatus=$STATE_OK
 fi
+
+echo "APACHE $data"
+
+exit $exitstatus
