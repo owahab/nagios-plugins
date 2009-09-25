@@ -1,10 +1,10 @@
 #! /bin/sh
 #
-# Apache processes memory detector plugin for Nagios
+# Free memory checker plugin for Nagios
 # Written by Omar Abdel-Wahab (owahab@owahab.com)
 # Last Modified: 08-20-2009
 #
-# Usage: ./check_apache_mem <process_name>
+# Usage: ./check_mem
 #
 # Description:
 #
@@ -40,7 +40,7 @@ print_help() {
     echo ""
     print_usage
     echo ""
-    echo "Apache process memory size detector plugin for Nagios"
+    echo "Free memory size checker plugin for Nagios"
     echo ""
 }
 
