@@ -111,23 +111,21 @@ total_memory=$(sed_mem `cat /proc/meminfo | grep "^MemTotal"`)
 unallocated_memory=$(sed_mem `cat /proc/meminfo | grep "^MemFree"`)
 cached_memory=$(sed_mem `cat /proc/meminfo | grep "^Cached"`)
 
-free_memory=$(echo "$total_memory-$unallocated_memory-$cached_memory" | bc -l)
-echo $free_memory
-exit 0
+free_memory=$(echo "(($unallocated_memory+$cached_memory)/$total_memory)*100" | bc -l | cut -d "." -f1)
 
 size=$(format_size $total_memory)
 
-if [ "$free_memory" -ge "$critical" ]; then
-	data="CRITICAL: a process reached $size $desc Size"
+if [ "$free_memory" -le "$critical" ]; then
+	data="CRITICAL"
 	exitstatus=$STATE_CRITICAL
-elif [ "$free_memory" -ge "$warning" ]; then
-	data="WARNING: a process reached $size $desc Size"
+elif [ "$free_memory" -le "$warning" ]; then
+	data="WARNING"
 	exitstatus=$STATE_WARNING
-elif [ "$free_memory" -lt "$critical" ]; then
-	data="OK: Maximum process size has $size $desc Size"
+elif [ "$free_memory" -gt "$warning" ]; then
+	data="OK"
 	exitstatus=$STATE_OK
 fi
 
-echo "MEMORY $data"
+echo "MEMORY $data: Free memory is about $free_memory%."
 
 exit $exitstatus
