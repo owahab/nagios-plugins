@@ -98,6 +98,9 @@ while test -n "$1"; do
             critical=$(calc_size $2)
             shift
             ;;
+        --style|-s)
+            shift
+            ;;
         *)
             echo "Unknown argument: $1"
             print_usage
