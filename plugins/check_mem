@@ -114,21 +114,21 @@ total_memory=$(sed_mem `cat /proc/meminfo | grep "^MemTotal"`)
 unallocated_memory=$(sed_mem `cat /proc/meminfo | grep "^MemFree"`)
 cached_memory=$(sed_mem `cat /proc/meminfo | grep "^Cached"`)
 
-free_memory=$(echo "(($unallocated_memory+$cached_memory)/$total_memory)*100" | bc -l | cut -d "." -f1)
+used_memory=$(echo "(($total_memory-$unallocated_memory-$cached_memory)/$total_memory)*100" | bc -l | cut -d "." -f1)
 
 size=$(format_size $total_memory)
 
-if [ "$free_memory" -gt "$critical" ]; then
+if [ "$used_memory" -gt "$critical" ]; then
 	data="CRITICAL"
 	exitstatus=$STATE_CRITICAL
-elif [ "$free_memory" -gt "$warning" ]; then
+elif [ "$used_memory" -gt "$warning" ]; then
 	data="WARNING"
 	exitstatus=$STATE_WARNING
-elif [ "$free_memory" -lt "$warning" ]; then
+elif [ "$used_memory" -lt "$warning" ]; then
 	data="OK"
 	exitstatus=$STATE_OK
 fi
 
-echo "MEMORY $data: Free memory is about $free_memory%."
+echo "MEMORY $data: Memory used is about $used_memory%."
 
 exit $exitstatus
