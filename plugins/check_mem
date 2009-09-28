@@ -118,13 +118,13 @@ free_memory=$(echo "(($unallocated_memory+$cached_memory)/$total_memory)*100" | 
 
 size=$(format_size $total_memory)
 
-if [ "$free_memory" -le "$critical" ]; then
+if [ "$free_memory" -gt "$critical" ]; then
 	data="CRITICAL"
 	exitstatus=$STATE_CRITICAL
-elif [ "$free_memory" -le "$warning" ]; then
+elif [ "$free_memory" -gt "$warning" ]; then
 	data="WARNING"
 	exitstatus=$STATE_WARNING
-elif [ "$free_memory" -gt "$warning" ]; then
+elif [ "$free_memory" -lt "$warning" ]; then
 	data="OK"
 	exitstatus=$STATE_OK
 fi
