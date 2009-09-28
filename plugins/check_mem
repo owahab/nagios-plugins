@@ -47,11 +47,13 @@ print_help() {
 format_size() {
 	if [ "$1" -lt "1024" ]; then
 		echo "$1 KB"
-	else
-		newsize=$(echo "$1/1024" | bc)
-		echo "$newsize MB"
-	fi
-
+    elif [ "$1" -lt "1048576" ]; then 
+        newsize=$(echo "$1/1024" | bc)
+        echo "$newsize MB"
+    else
+        newsize=$(echo "$1/1048576" | bc)
+        echo "$newsize GB"
+    fi
 	return 0
 }
 
