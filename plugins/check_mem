@@ -1,4 +1,4 @@
-#! /bin/sh
+#!/bin/sh
 #
 # Free memory checker plugin for Nagios
 # Written by Omar Abdel-Wahab (owahab@owahab.com)
