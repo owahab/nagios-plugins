@@ -129,6 +129,6 @@ elif [ "$used_memory" -lt "$warning" ]; then
 	exitstatus=$STATE_OK
 fi
 
-echo "MEMORY $data: Memory used is about $used_memory%."
+echo "MEMORY $data - Memory used is about $used_memory%. Total memory is $size."
 
 exit $exitstatus
